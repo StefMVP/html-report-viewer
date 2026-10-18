@@ -46,6 +46,15 @@ async function check(page) {
   }
 
   await openReport();
+  await page.frameLocator("#frame").locator("#script").click();
+  await page
+    .frameLocator("#frame")
+    .getByText("echo Notes tool \u2192 ok")
+    .waitFor({ timeout: 5000 })
+    .catch(() => fail("The script link shows " + preview().url()));
+  result.script = preview().url().replace(/^[a-z]+:\/\/[^/]+/, "").split("?")[0];
+
+  await openReport();
   result.internet = await newTab("internet");
   if (result.internet !== "https://external.example/page?from=report")
     fail("The internet link opened " + result.internet);

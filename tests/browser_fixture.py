@@ -40,6 +40,7 @@ def populate_checks(root):
     (root / "links.html").write_text(
         (APP / "tests/fixtures/links.html").read_text().replace("REPORT_ROOT", str(root))
     )
+    (root / "notes-tool").write_text("#!/bin/sh\necho Notes tool \u2192 ok\n")
     (root / "older.html").write_text("<title>Older report</title><h1>Older report</h1>")
     os.utime(root / "older.html", (1, 1))
     (root / "recent.html").write_text(
