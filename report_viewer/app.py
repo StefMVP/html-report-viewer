@@ -26,6 +26,21 @@ UI_ASSETS = {
     "styles.css",
     "vendor/es-module-lexer.mjs",
 }
+# Internet sites usually refuse frames, so framed reports open them in a new tab.
+LINK_SCRIPT = b"""<script>
+addEventListener("click", (event) => {
+  const link = event.target.closest?.("a[href]");
+  if (top === self || !(link instanceof HTMLAnchorElement) || event.defaultPrevented) return;
+  if (event.button || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  if ((link.target && link.target !== "_self") || link.hasAttribute("download")) return;
+  const url = new URL(link.href);
+  if (!/^https?:$/.test(url.protocol) || url.origin === location.origin) return;
+  if (["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) return;
+  event.preventDefault();
+  window.open(link.href, "_blank", "noopener");
+});
+</script>
+"""
 
 
 def https_origin(value):
@@ -90,8 +105,9 @@ class Handler(SimpleHTTPRequestHandler):
             if (
                 urlsplit(self.path).path.startswith("/files/")
                 and self.headers.get("Sec-Fetch-Mode") == "navigate"
-                and self.headers.get("Sec-Fetch-Dest") == "document"
+                and self.headers.get("Sec-Fetch-Dest") in ("document", "iframe")
             ):
+                # frame-ancestors still limits which pages can show a report.
                 return True
             ref = urlsplit(self.headers.get("Referer", ""))
             return (ref.scheme + "://" + ref.netloc) in self.server.viewer_origins
@@ -167,8 +183,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "Content-Security-Policy",
                 "default-src 'self'; script-src 'nonce-"
                 + nonce
-                + "'; style-src 'self'; img-src 'self' data:; frame-src 'self' "
-                + preview_origin
+                + "'; style-src 'self'; img-src 'self' data:; frame-src http: https:"
                 + " blob:; connect-src 'self' http: https:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
             )
             self.end_headers()
@@ -218,6 +233,17 @@ class Handler(SimpleHTTPRequestHandler):
                 return
             self.path = "/" + quote(candidate.relative_to(ROOT).as_posix())
         self.serving_report = True
+        if getattr(self.server, "preview_only", False) and candidate.suffix.lower() in (
+            ".html",
+            ".htm",
+        ):
+            body = candidate.read_bytes() + LINK_SCRIPT
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         super().do_GET()
 
     def do_HEAD(self):
@@ -245,7 +271,8 @@ class Handler(SimpleHTTPRequestHandler):
                 ancestors = " ".join(self.server.viewer_origins)
                 self.send_header(
                     "Content-Security-Policy",
-                    "sandbox allow-scripts allow-same-origin; frame-ancestors 'self' "
+                    "sandbox allow-scripts allow-same-origin allow-popups"
+                    + " allow-popups-to-escape-sandbox; frame-ancestors 'self' "
                     + ancestors
                     + "; base-uri 'none'; form-action 'none'",
                 )

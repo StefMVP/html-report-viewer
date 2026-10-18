@@ -171,7 +171,10 @@ function select(row) {
   // Replace the browsing context so each click starts a new document at the top.
   const frame = $("frame").cloneNode(false),
     url = new URL(row.url, previewOrigin);
-  frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
+  frame.setAttribute(
+    "sandbox",
+    "allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox",
+  );
   url.searchParams.set("v", String(row.modified));
   url.searchParams.set("load", String(++previewLoad));
   frame.src = url.href;

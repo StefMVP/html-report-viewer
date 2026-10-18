@@ -102,7 +102,6 @@ class LocalAPITests(unittest.TestCase):
             code, response_headers, body = request(self.port, "/", headers=headers)
             self.assertEqual(code, 200)
             self.assertIn(preview_origin.encode(), body)
-            self.assertIn(preview_origin, response_headers["Content-Security-Policy"])
             # A top-level external link opens normally; an iframe/fetch from HTML cannot read controls.
             navigation = {
                 **headers,
@@ -289,7 +288,7 @@ class LocalAPITests(unittest.TestCase):
                 )
                 self.assertEqual(code, 200)
                 self.assertIn(b"Local API test", body)
-        for destination in ("iframe", "image", "script", "empty"):
+        for destination in ("image", "script", "empty"):
             with self.subTest(destination=destination):
                 code, _, body = request(
                     self.preview.server_port,
@@ -301,6 +300,41 @@ class LocalAPITests(unittest.TestCase):
             self.preview.server_port, "/api/shares", headers=headers
         )
         self.assertEqual((code, body), (404, b""))
+
+    def test_report_links_can_load_in_the_preview_frame(self):
+        status, headers, _ = request(self.port, "/")
+        self.assertEqual(status, 200)
+        self.assertIn("frame-src http: https: blob:", headers["Content-Security-Policy"])
+        # A report link to the other loopback name is cross-site and has no referrer.
+        code, headers, body = request(
+            self.preview.server_port,
+            "/files/report.html",
+            headers={
+                "Host": f"localhost:{self.preview.server_port}",
+                "Sec-Fetch-Site": "cross-site",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Dest": "iframe",
+            },
+        )
+        self.assertEqual(code, 200)
+        self.assertIn(b"Local API test", body)
+        self.assertIn(
+            "sandbox allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox;",
+            headers["Content-Security-Policy"],
+        )
+
+    def test_preview_opens_internet_links_in_a_new_tab(self):
+        code, headers, body = request(self.preview.server_port, "/files/report.html")
+        self.assertEqual(code, 200)
+        self.assertTrue(body.startswith(b"<h1>Local API test</h1>"))
+        self.assertIn(b'window.open(link.href, "_blank", "noopener")', body)
+        self.assertEqual(headers["Content-Length"], str(len(body)))
+        # Downloads read the unchanged file through the viewer.
+        code, _, body = request(self.port, "/files/report.html")
+        self.assertEqual((code, body), (200, b"<h1>Local API test</h1>"))
+        (self.root / "data.json").write_text("{}")
+        code, _, body = request(self.preview.server_port, "/files/data.json")
+        self.assertEqual((code, body), (200, b"{}"))
 
     def test_viewer_cannot_be_framed_and_has_nonce(self):
         status, headers, body = request(self.port, "/")
