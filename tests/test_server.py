@@ -358,6 +358,34 @@ class LocalAPITests(unittest.TestCase):
                     )
         self.assertEqual(request(self.port, absolute)[::2], (404, b""))
 
+    def test_text_files_open_as_utf8_text(self):
+        def content_type(name):
+            headers = request(self.preview.server_port, "/files/" + name)[1]
+            return {k.lower(): v for k, v in headers.items()}["content-type"]
+
+        # Browsers download unknown types, and a sandboxed frame blocks downloads.
+        for name, data in {
+            "tool": "#!/bin/sh\necho caf\u00e9\n".encode(),
+            "notes.md": "# Plan \u2192 done\n".encode(),
+            "run.log": b"step 1 ok\n",
+            "settings.toml": b"key = 1\n",
+            "deploy.sh": b"echo ok\n",
+        }.items():
+            (self.root / name).write_bytes(data)
+            with self.subTest(name=name):
+                self.assertEqual(content_type(name), "text/plain; charset=utf-8")
+                self.assertEqual(request(self.preview.server_port, "/files/" + name)[2], data)
+        for name, data, kind in (
+            ("blob.bin", b"\x00\x01\xff", "application/octet-stream"),
+            ("latin.txt", b"caf\xe9\n", "text/plain"),
+            ("style.css", b"p{}", "text/css"),
+            ("app.js", b"1", "text/javascript"),
+            ("feed.xml", b"<a/>", "text/xml"),
+        ):
+            (self.root / name).write_bytes(data)
+            with self.subTest(name=name):
+                self.assertEqual(content_type(name), kind)
+
     def test_viewer_cannot_be_framed_and_has_nonce(self):
         status, headers, body = request(self.port, "/")
         self.assertEqual(status, 200)

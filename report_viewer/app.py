@@ -2,6 +2,7 @@
 """Browse local HTML reports with a separate preview origin."""
 
 import argparse
+import codecs
 import json
 import math
 import os
@@ -81,6 +82,22 @@ class Handler(SimpleHTTPRequestHandler):
     def setup(self):
         super().setup()
         self.connection.settimeout(15)
+
+    def guess_type(self, path):
+        kind = super().guess_type(path)
+        if kind in ("text/html", "text/css", "text/javascript", "text/xml") or not (
+            kind == "application/octet-stream" or kind.startswith(("text/", "application/x-"))
+        ):
+            return kind
+        # Browsers download types they cannot show, and the preview frame blocks
+        # downloads. Serve readable UTF-8 files as plain text.
+        try:
+            with open(path, "rb") as source:
+                sample = source.read(65536)
+            codecs.getincrementaldecoder("utf-8")().decode(sample)
+        except (OSError, UnicodeDecodeError):
+            return kind
+        return kind if b"\0" in sample else "text/plain; charset=utf-8"
 
     def request_origin(self):
         remote = getattr(self.server, "remote_origin", "")
