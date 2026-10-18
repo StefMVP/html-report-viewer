@@ -30,11 +30,17 @@ UI_ASSETS = {
 LINK_SCRIPT = b"""<script>
 addEventListener("click", (event) => {
   const link = event.target.closest?.("a[href]");
-  if (top === self || !(link instanceof HTMLAnchorElement) || event.defaultPrevented) return;
+  if (!(link instanceof HTMLAnchorElement) || event.defaultPrevented) return;
   if (event.button || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
   if ((link.target && link.target !== "_self") || link.hasAttribute("download")) return;
   const url = new URL(link.href);
-  if (!/^https?:$/.test(url.protocol) || url.origin === location.origin) return;
+  if (url.protocol === "file:") {
+    // The preview server maps absolute paths under its root to report files.
+    event.preventDefault();
+    location.assign(url.pathname);
+    return;
+  }
+  if (top === self || !/^https?:$/.test(url.protocol) || url.origin === location.origin) return;
   if (["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) return;
   event.preventDefault();
   window.open(link.href, "_blank", "noopener");
@@ -136,7 +142,22 @@ class Handler(SimpleHTTPRequestHandler):
         if getattr(self.server, "preview_only", False) and not url.path.startswith(
             "/files/"
         ):
-            self.send_error(404)
+            # Reports often link files by their absolute path on this machine.
+            target = Path(unquote(url.path))
+            found = (
+                resolve_visible(ROOT, target.relative_to(ROOT))
+                if target.is_relative_to(ROOT)
+                else None
+            )
+            if found is None or not found.is_file():
+                self.send_error(404)
+                return
+            self.send_response(302)
+            self.send_header(
+                "Location", "/files/" + quote(found.relative_to(ROOT).as_posix())
+            )
+            self.send_header("Content-Length", "0")
+            self.end_headers()
             return
         if url.path.startswith("/assets/"):
             name = url.path[len("/assets/") :]

@@ -8,6 +8,7 @@ import secrets
 import tempfile
 import threading
 import unittest
+from urllib.parse import quote
 
 
 def request(port, path, method="GET", headers=None, body=None):
@@ -335,6 +336,27 @@ class LocalAPITests(unittest.TestCase):
         (self.root / "data.json").write_text("{}")
         code, _, body = request(self.preview.server_port, "/files/data.json")
         self.assertEqual((code, body), (200, b"{}"))
+
+    def test_preview_redirects_absolute_paths_under_the_root(self):
+        (self.root / "notes dir").mkdir(exist_ok=True)
+        (self.root / "notes dir/plan.md").write_text("Plan")
+        (self.root / ".hidden.md").write_text("Hidden")
+        absolute = quote(str(self.root / "notes dir/plan.md"))
+        code, headers, _ = request(self.preview.server_port, absolute)
+        self.assertEqual((code, headers.get("Location")), (302, "/files/notes%20dir/plan.md"))
+        with tempfile.NamedTemporaryFile(dir=self.root.parent, suffix=".md") as outside:
+            name = Path(outside.name).name
+            for path in (
+                outside.name,
+                str(self.root) + "/../" + name,
+                str(self.root / ".hidden.md"),
+                str(self.root / "notes dir"),
+            ):
+                with self.subTest(path=path):
+                    self.assertEqual(
+                        request(self.preview.server_port, quote(path))[::2], (404, b"")
+                    )
+        self.assertEqual(request(self.port, absolute)[::2], (404, b""))
 
     def test_viewer_cannot_be_framed_and_has_nonce(self):
         status, headers, body = request(self.port, "/")

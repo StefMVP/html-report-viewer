@@ -37,7 +37,9 @@ def populate_checks(root):
     (root / "example.html").write_bytes(
         (APP / "tests/fixtures/report.html").read_bytes()
     )
-    (root / "links.html").write_bytes((APP / "tests/fixtures/links.html").read_bytes())
+    (root / "links.html").write_text(
+        (APP / "tests/fixtures/links.html").read_text().replace("REPORT_ROOT", str(root))
+    )
     (root / "older.html").write_text("<title>Older report</title><h1>Older report</h1>")
     os.utime(root / "older.html", (1, 1))
     (root / "recent.html").write_text(

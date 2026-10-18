@@ -33,14 +33,17 @@ async function check(page) {
   }
   const result = {};
 
-  await openReport();
-  await page.frameLocator("#frame").locator("#local").click();
-  await page
-    .frameLocator("#frame")
-    .getByRole("heading", { name: "Older report", exact: true })
-    .waitFor({ timeout: 5000 })
-    .catch(() => fail("The local link shows " + preview().url()));
-  result.local = preview().url();
+  // Reports link files by preview URL, by absolute path and by file URL.
+  for (const id of ["local", "path", "file"]) {
+    await openReport();
+    await page.frameLocator("#frame").locator("#" + id).click();
+    await page
+      .frameLocator("#frame")
+      .getByRole("heading", { name: "Older report", exact: true })
+      .waitFor({ timeout: 5000 })
+      .catch(() => fail("The " + id + " link shows " + preview().url()));
+    result[id] = preview().url().replace(/^[a-z]+:\/\/[^/]+/, "").split("?")[0];
+  }
 
   await openReport();
   result.internet = await newTab("internet");
