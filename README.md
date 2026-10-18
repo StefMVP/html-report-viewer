@@ -31,7 +31,8 @@ report stay in the URL.
 
 **Copy report** copies a local file link. **Download report** saves standalone HTML
 with its styles, images, scripts, media and nested frames. **Open** opens the preview.
-Links to internet sites in a report open in a new tab.
+Links to internet sites in a report open in a new tab. Links to absolute file paths
+inside the root open in the preview.
 On mobile, use **Reports** to return to the list and **•••** for report actions.
 
 Downloads preserve active HTML. Live APIs and asset URLs computed by scripts can
