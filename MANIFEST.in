@@ -1,0 +1,6 @@
+include README.md uv.lock
+include scripts/report-viewer-service scripts/check scripts/check-package
+recursive-include report_viewer *.py *.html *.mjs *.css *.ignore LICENSE NOTICE
+recursive-include tests *.py *.js *.mjs *.json *.css *.svg *.html
+recursive-include docs *.png
+global-exclude *.pyc

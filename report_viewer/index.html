@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workspace reports</title>
+<link rel="icon" href="data:,">
+
+
+<link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+<aside aria-label="Report sidebar">
+  <header>
+    <input id="search" type="search" placeholder="Search title or folder…" aria-label="Search reports">
+    <div class="filters">
+      <select id="days" aria-label="Time window"><option value="0.08333333333333333">Last 2 hours</option><option value="1">Last 24 hours</option><option value="3">Last 3 days</option><option value="7" selected>Last 7 days</option><option value="14">Last 14 days</option><option value="30">Last 30 days</option><option value="0">All time</option></select>
+      <select id="type" aria-label="Type"><option value="" selected>Reports and pages</option><option>Report</option><option>Deck</option><option>Storyboard</option><option>Video</option><option>Mockup</option><option>Docs</option><option>HTML</option><option>Code and tests</option></select>
+    </div>
+  </header>
+  <p id="connection-error" class="connection-error" role="status" hidden></p>
+  <nav id="list" aria-label="Reports, pinned first, newest first within each group"></nav>
+</aside>
+<main>
+  <div class="toolbar">
+    <button id="toggle" aria-label="Browse reports" aria-expanded="true" title="Browse reports">Reports</button>
+    <div id="current" class="current">Select a report</div>
+    <button id="copy" title="Copy a Markdown link to the report’s full file path" hidden>Copy report</button>
+    <button id="download" title="Download standalone HTML" disabled>Download report</button>
+    <button id="open" hidden>Open</button>
+    <button id="more-actions" aria-label="Report actions" aria-expanded="false">•••</button>
+  </div>
+  <div id="welcome" class="welcome">Select a report.</div>
+  <iframe id="frame" title="Selected report" sandbox="allow-scripts" referrerpolicy="origin" hidden></iframe>
+</main>
+<script></script>
+<script type="module" src="/assets/viewer.mjs"></script>
+</body>
+</html>

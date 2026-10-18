@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""Run the checkout headlessly under the user service manager."""
+
+import argparse
+import json
+import os
+from pathlib import Path
+import shlex
+import subprocess
+import sys
+import time
+from urllib.error import URLError
+from urllib.request import urlopen
+
+
+def quoted(value):
+    # systemd expands percent specifiers even inside quoted arguments.
+    return json.dumps(str(value).replace("%", "%%"))
+
+
+def configured(unit):
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--root", type=Path)
+    parser.add_argument("--previous-root", type=Path)
+    parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument("--preview-port", type=int, default=8768)
+    command = (
+        next(
+            (
+                line.partition("=")[2]
+                for line in unit.read_text().splitlines()
+                if line.startswith("ExecStart=")
+            ),
+            "",
+        )
+        if unit.exists()
+        else ""
+    )
+    values, _ = parser.parse_known_args(
+        [value.replace("%%", "%") for value in shlex.split(command)]
+    )
+    return values
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "action", choices=("start", "restart", "stop", "status", "logs")
+    )
+    parser.add_argument(
+        "--root",
+        type=Path,
+        help="Report discovery folder (first start defaults to cwd)",
+    )
+    parser.add_argument(
+        "--previous-root",
+        type=Path,
+        help="Previous root for migrating browser paths when expanding --root",
+    )
+    parser.add_argument(
+        "--port", type=int, help="Viewer port (default: 8766; retained on restart)"
+    )
+    parser.add_argument(
+        "--preview-port",
+        type=int,
+        help="Preview port (default: 8768; retained on restart)",
+    )
+    args = parser.parse_args()
+    if args.previous_root and (
+        not args.root or args.action not in ("start", "restart")
+    ):
+        parser.error("--previous-root requires --root and start or restart")
+    unit_name = "report-viewer.service"
+    if args.action == "logs":
+        subprocess.run(
+            ["journalctl", "--user", "-u", unit_name, "-n", "50", "--no-pager"],
+            check=True,
+        )
+        return
+    if args.action in ("stop", "status"):
+        subprocess.run(
+            ["systemctl", "--user", args.action, unit_name, "--no-pager"], check=True
+        )
+        return
+
+    subprocess.run(
+        ["systemctl", "--user", "show-environment"],
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    checkout = Path(__file__).resolve().parent.parent
+    unit = (
+        Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+        / "systemd/user"
+        / unit_name
+    )
+    sys.path.insert(0, str(checkout))
+    from report_viewer.runtime import version
+
+    expected_version = version()
+    current = configured(unit)
+    port = args.port if args.port is not None else current.port
+    preview_port = (
+        args.preview_port if args.preview_port is not None else current.preview_port
+    )
+    if (
+        not all(1 <= value <= 65535 for value in (port, preview_port))
+        or port == preview_port
+    ):
+        parser.error("Viewer and preview require different ports between 1 and 65535")
+    root = (args.root or current.root or Path.cwd()).expanduser().resolve(strict=True)
+    if not root.is_dir():
+        parser.error("--root must be a directory")
+    previous_root = args.previous_root or (
+        current.previous_root if args.root is None else None
+    )
+    previous_root = previous_root.expanduser().resolve() if previous_root else None
+    if previous_root and not previous_root.is_relative_to(root):
+        parser.error("--previous-root must be inside --root")
+    migration_args = (
+        f" --previous-root {quoted(previous_root)}" if previous_root else ""
+    )
+    contents = f"""[Unit]
+Description=Headless local report viewer
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={quoted(sys.executable)} -u -c {quoted("import sys; sys.path.insert(0, " + repr(str(checkout)) + "); from report_viewer.app import main; main()")} --root {quoted(root)}{migration_args} --port {port} --preview-port {preview_port}
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+"""
+    changed = not unit.exists() or unit.read_text() != contents
+    if changed:
+        unit.parent.mkdir(parents=True, exist_ok=True)
+        unit.write_text(contents)
+        subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
+        args.action = "restart"
+    subprocess.run(["systemctl", "--user", "enable", unit_name], check=True)
+    subprocess.run(["systemctl", "--user", args.action, unit_name], check=True)
+    for _ in range(50):
+        active = (
+            subprocess.run(
+                ["systemctl", "--user", "is-active", "--quiet", unit_name]
+            ).returncode
+            == 0
+        )
+        try:
+            with urlopen(f"http://127.0.0.1:{port}/api/health", timeout=1) as response:
+                health = json.load(response)
+            if (
+                active
+                and health.get("app") == "workspace-report-viewer"
+                and health.get("root") == str(root)
+                and health.get("version") == expected_version
+            ):
+                print(
+                    f"Running headlessly at http://localhost:{port}/ (reports: {health['root']})"
+                )
+                return
+        except (URLError, OSError, ValueError):
+            pass
+        time.sleep(0.2)
+    raise SystemExit(
+        "Viewer did not become ready. Inspect: scripts/report-viewer-service logs"
+    )
+
+
+if __name__ == "__main__":
+    main()

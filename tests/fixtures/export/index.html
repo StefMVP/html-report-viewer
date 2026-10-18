@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Asset export report</title>
+<meta name="report:title" content="Asset export report">
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">{"imports":{"theme":"./theme.mjs"}}</script>
+<h1>Asset export report</h1>
+<p id="styled">Styled report</p>
+<img id="image" src="pixel.svg" srcset="pixel.svg 1x, pixel.svg 2x" alt="Blue square">
+<audio id="audio" src="tone.wav" preload="metadata" controls></audio>
+<p id="module-result">Waiting for modules</p>
+<p id="inline-result">Waiting for inline module</p>
+<script type="module" src="main.mjs"></script>
+<script type="module">import {theme} from 'theme';document.querySelector('#inline-result').textContent=theme;</script>
+<script src="classic.js"></script>
+<button id="classic" onclick="this.textContent=classicMessage">Test script</button>
+<button id="classic-import" onclick="classicImport().then(value=>this.textContent=value)">Load module</button>
+<iframe id="nested" src="child.html" title="Nested document"></iframe>
+<iframe id="inline-frame" title="Inline document" srcdoc="&lt;link rel='stylesheet' href='frame.css'&gt;&lt;h2&gt;Inline document&lt;/h2&gt;&lt;img src='pixel.svg' alt='Blue square'&gt;&lt;script type='module'&gt;import {theme} from './theme.mjs';document.body.dataset.theme=theme;&lt;/script&gt;"></iframe>

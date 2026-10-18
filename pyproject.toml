@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "local-report-viewer"
+version = "0.1.0"
+description = "Browse local HTML reports with a separate preview origin"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "report_viewer/vendor/LICENSE"]
+requires-python = ">=3.11"
+dependencies = []
+classifiers = [
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+]
+
+[project.scripts]
+report-viewer = "report_viewer.app:main"
+
+[tool.setuptools]
+packages = ["report_viewer"]
+
+[tool.setuptools.package-data]
+report_viewer = ["*.html", "*.mjs", "*.css", "*.ignore", "vendor/*"]

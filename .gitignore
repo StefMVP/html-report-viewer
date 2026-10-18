@@ -1,0 +1,12 @@
+.runtime/
+__pycache__/
+*.pyc
+.venv/
+build/
+dist/
+*.egg-info/
+.playwright-cli/
+screenshots/
+reports/
+.ws/
+.worktrees/

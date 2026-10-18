@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="report:title" content="Dashboard · layout review" />
+    <title>Dashboard · layout review</title>
+    <link rel="stylesheet" href="/files/assets/report.css" />
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">
+        <span>Dashboard / Layout review</span
+        ><span class="sample">Fictional demo</span>
+      </div>
+      <h1>Start with the next action</h1>
+      <p class="intro">
+        Show today's tasks before project totals. Keep project progress beside
+        the task list so the first view supports a useful decision.
+      </p>
+      <h2>Proposed dashboard</h2>
+      <section class="dashboard" aria-label="Dashboard mockup">
+        <div class="dashboard-head">
+          <div>
+            <h3>Good morning, Jamie</h3>
+            <p>Three tasks need your attention today.</p>
+          </div>
+          <span class="soft-button">+ Add task</span>
+        </div>
+        <div class="dashboard-grid">
+          <div class="panel">
+            <h3>Today</h3>
+            <div class="check-row">
+              <span class="square"></span>Review calendar layout<small
+                >09:30</small
+              >
+            </div>
+            <div class="check-row">
+              <span class="square"></span>Add the project search field<small
+                >Today</small
+              >
+            </div>
+            <div class="check-row">
+              <span class="square"></span>Check the weekly export<small
+                >Today</small
+              >
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Projects</h3>
+            <div class="progress-line">
+              <span>Task board</span><span>8 / 12 tasks</span>
+            </div>
+            <div class="track"><b style="width: 67%"></b></div>
+            <div class="progress-line">
+              <span>Workspace</span><span>3 / 8 tasks</span>
+            </div>
+            <div class="track"><b style="width: 38%"></b></div>
+            <div class="progress-line">
+              <span>Reading list</span><span>5 / 6 tasks</span>
+            </div>
+            <div class="track"><b style="width: 83%"></b></div>
+          </div>
+        </div>
+      </section>
+      <h2>Review notes</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Area</th>
+            <th>Recommendation</th>
+            <th>Priority</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>First view</td>
+            <td>Replace the totals row with the tasks due today</td>
+            <td>High</td>
+          </tr>
+          <tr>
+            <td>Hierarchy</td>
+            <td>Use one primary action; keep project links quiet</td>
+            <td>High</td>
+          </tr>
+          <tr>
+            <td>Mobile</td>
+            <td>Place project progress below the task list</td>
+            <td>Medium</td>
+          </tr>
+          <tr>
+            <td>Empty state</td>
+            <td>Offer “Add task” when there is nothing due</td>
+            <td>Medium</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <p>
+          <strong>Scope:</strong> This is a layout proposal. Confirm the task
+          order with representative users before implementation.
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

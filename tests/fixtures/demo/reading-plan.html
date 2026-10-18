@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="report:title" content="Reading list · implementation plan" />
+    <title>Reading list · implementation plan</title>
+    <link rel="stylesheet" href="/files/assets/report.css" />
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">
+        <span>Reader / Implementation plan</span
+        ><span class="sample">Fictional demo</span>
+      </div>
+      <h1>Save a link now and read it later</h1>
+      <p class="intro">
+        Start with a small local reading list. Save a URL, add a title and mark
+        the item as read. Keep article downloads outside this first change.
+      </p>
+      <h2>Implementation order</h2>
+      <ol class="step-list">
+        <li>
+          <strong>Store the list.</strong> Use a stable ID, URL, title, saved
+          date and read state.
+        </li>
+        <li>
+          <strong>Add the form.</strong> Validate HTTP and HTTPS URLs. Keep the
+          typed title if page metadata cannot be read.
+        </li>
+        <li>
+          <strong>Show saved items.</strong> Put unread items first, then sort
+          by saved date.
+        </li>
+        <li>
+          <strong>Verify persistence.</strong> Save two items, mark one as read
+          and reopen the app.
+        </li>
+      </ol>
+      <h2>Data flow</h2>
+      <div class="flow">
+        <div class="flow-card">
+          <strong>Save URL</strong>
+          <p>Title is optional</p>
+        </div>
+        <span class="arrow">→</span>
+        <div class="flow-card">
+          <strong>Local store</strong>
+          <p>One row per URL</p>
+        </div>
+        <span class="arrow">→</span>
+        <div class="flow-card">
+          <strong>Reading list</strong>
+          <p>Unread items first</p>
+        </div>
+      </div>
+      <div class="decision">
+        <strong>Decision needed</strong>
+        <p>
+          Should saving an existing URL reopen its item or move it to the top?
+          Reopening preserves the original saved date.
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

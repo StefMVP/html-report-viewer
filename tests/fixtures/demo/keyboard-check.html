@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="report:title" content="Keyboard navigation · verification" />
+    <title>Keyboard navigation · verification</title>
+    <link rel="stylesheet" href="/files/assets/report.css" />
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">
+        <span>Task board / Verification</span
+        ><span class="sample">Fictional demo</span>
+      </div>
+      <h1>Complete the core flow with a keyboard</h1>
+      <p class="intro">
+        Open the board, create a task, move it and return from its detail panel.
+        Check visible focus after each action.
+      </p>
+      <div class="verdict">
+        <span class="check">✓</span><strong>9 of 9 checks passed</strong
+        ><span class="details">Keyboard only</span>
+      </div>
+      <h2>Checked actions</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Observed result</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Tab through the board</td>
+            <td>Focus follows column and task order</td>
+            <td class="passed">Passed</td>
+          </tr>
+          <tr>
+            <td>Enter on a task</td>
+            <td>The detail panel opens at its title</td>
+            <td class="passed">Passed</td>
+          </tr>
+          <tr>
+            <td>Escape from the panel</td>
+            <td>Focus returns to the same task</td>
+            <td class="passed">Passed</td>
+          </tr>
+          <tr>
+            <td>Move a task with the menu</td>
+            <td>Focus follows it to the target column</td>
+            <td class="passed">Passed</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <p>
+          <strong>Follow-up:</strong> Run a screen-reader check. Keyboard access
+          alone does not verify announcements or reading order.
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

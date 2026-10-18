@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="report:title"
+      content="Task board · drag and drop verification"
+    />
+    <title>Task board · drag and drop verification</title>
+    <link rel="stylesheet" href="/files/assets/report.css" />
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">
+        <span>Task board / Verification</span
+        ><span class="sample">Fictional demo</span>
+      </div>
+      <h1>Moving tasks keeps their state</h1>
+      <p class="intro">
+        Drag a task to another column, then undo the move. Its owner, labels and
+        due date stay intact.
+      </p>
+      <div class="verdict">
+        <span class="check">✓</span><strong>18 of 18 checks passed</strong
+        ><span class="details">Desktop + mobile · One fix verified</span>
+      </div>
+
+      <div class="section-heading">
+        <h2>The verified flow</h2>
+        <span>UI mockup · Move a task, then undo</span>
+      </div>
+      <section class="board" aria-label="Task board mockup">
+        <div class="board-toolbar">
+          <span class="board-brand"
+            ><span class="brand-mark" aria-hidden="true"
+              ><i></i><i></i><i></i><i></i></span
+            >Task board <span class="muted">/ This week</span></span
+          ><span class="board-controls"
+            ><span class="soft-button">Filter</span
+            ><span class="soft-button">+ New task</span></span
+          >
+        </div>
+        <div class="columns">
+          <section>
+            <h3 class="column-label">
+              <span class="dot"></span>To do <span class="count">2</span
+              ><span class="plus">+</span>
+            </h3>
+            <article class="task">
+              <span class="task-tag design">Design</span>
+              <p class="task-title">Review calendar layout</p>
+              <div class="task-footer">
+                <span>TB-21 · Tomorrow</span><span class="avatar">EL</span>
+              </div>
+            </article>
+            <article class="task">
+              <span class="task-tag feature">Feature</span>
+              <p class="task-title">Export the weekly summary</p>
+              <div class="task-footer">
+                <span>TB-26 · Friday</span><span class="avatar peach">MK</span>
+              </div>
+            </article>
+          </section>
+          <section>
+            <h3 class="column-label">
+              <span class="dot blue"></span>In progress
+              <span class="count">2</span><span class="plus">+</span>
+            </h3>
+            <article class="task moved" id="moved-task">
+              <span class="task-tag feature">Feature</span>
+              <p class="task-title">Add the project search field</p>
+              <div class="task-footer">
+                <span>TB-24 · Today</span><span class="avatar green">JN</span>
+              </div>
+            </article>
+            <article class="task">
+              <span class="task-tag bug">Fix</span>
+              <p class="task-title">Keep the due date after undo</p>
+              <div class="task-footer">
+                <span>TB-28 · Today</span><span class="avatar">EL</span>
+              </div>
+            </article>
+          </section>
+          <section>
+            <h3 class="column-label">
+              <span class="dot green"></span>Done <span class="count">2</span
+              ><span class="plus">+</span>
+            </h3>
+            <article class="task done">
+              <span class="task-tag design">Design</span>
+              <p class="task-title">Write the empty state</p>
+              <div class="task-footer">
+                <span>TB-18 · Complete</span
+                ><span class="avatar peach">MK</span>
+              </div>
+            </article>
+            <article class="task done">
+              <span class="task-tag feature">Feature</span>
+              <p class="task-title">Add keyboard shortcuts</p>
+              <div class="task-footer">
+                <span>TB-19 · Complete</span
+                ><span class="avatar green">JN</span>
+              </div>
+            </article>
+          </section>
+        </div>
+        <div class="board-footer">
+          <span class="move-icon">↳</span
+          ><span id="move-message">TB-24 moved to In progress</span
+          ><button id="undo" type="button">Undo move</button>
+        </div>
+      </section>
+
+      <h2>What was checked</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Scenario</th>
+            <th>Observed result</th>
+            <th>Checks</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Move between columns</td>
+            <td>One move saved; order remains correct</td>
+            <td class="passed">6 / 6 passed</td>
+          </tr>
+          <tr>
+            <td>Undo and reload</td>
+            <td>Column, owner and due date restored</td>
+            <td class="passed">4 / 4 passed</td>
+          </tr>
+          <tr>
+            <td>Keyboard controls</td>
+            <td>Focus follows the moved task</td>
+            <td class="passed">3 / 3 passed</td>
+          </tr>
+          <tr>
+            <td>Reconnect after a failed save</td>
+            <td>No duplicate task or lost change</td>
+            <td class="passed">3 / 3 passed</td>
+          </tr>
+          <tr>
+            <td>Mobile layout at 390 px</td>
+            <td>Move controls remain in view</td>
+            <td class="passed">2 / 2 passed</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <p>
+          <strong>Fix verified:</strong> Undo previously restored the column but
+          cleared the due date. The repeated check now preserves both.
+        </p>
+      </div>
+    </main>
+    <script>
+      document.querySelector("#undo").addEventListener("click", function () {
+        const task = document.querySelector("#moved-task");
+        document.querySelector(".columns section").append(task);
+        document.querySelectorAll(".column-label .count")[0].textContent = "3";
+        document.querySelectorAll(".column-label .count")[1].textContent = "1";
+        document.querySelector("#move-message").textContent =
+          "TB-24 restored to To do · Due today";
+        this.textContent = "Move undone";
+        this.disabled = true;
+      });
+    </script>
+  </body>
+</html>

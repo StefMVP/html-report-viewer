@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="report:title" content="Offline mode · reconnect verification" />
+    <title>Offline mode · reconnect verification</title>
+    <link rel="stylesheet" href="/files/assets/report.css" />
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">
+        <span>Task board / Verification</span
+        ><span class="sample">Fictional demo</span>
+      </div>
+      <h1>Changes survive a lost connection</h1>
+      <p class="intro">
+        Create, edit and move a task while offline. Reconnect and confirm that
+        the server receives each change once.
+      </p>
+      <div class="verdict">
+        <span class="check">✓</span><strong>12 of 12 checks passed</strong
+        ><span class="details">Simulated network loss</span>
+      </div>
+      <h2>Observed results</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Scenario</th>
+            <th>Expected and observed</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Create while offline</td>
+            <td>The new task stays visible after reload</td>
+            <td class="passed">Passed</td>
+          </tr>
+          <tr>
+            <td>Edit the same task twice</td>
+            <td>The queue keeps the latest value</td>
+            <td class="passed">Passed</td>
+          </tr>
+          <tr>
+            <td>Reconnect during a save</td>
+            <td>One task is created; the queue clears</td>
+            <td class="passed">Passed</td>
+          </tr>
+          <tr>
+            <td>Server rejects a change</td>
+            <td>The task stays local with a retry action</td>
+            <td class="passed">Passed</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <p>
+          <strong>Not checked:</strong> Conflicting edits from a second device.
+          That needs a separate integration check.
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

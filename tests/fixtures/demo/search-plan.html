@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="report:title"
+      content="Workspace search · implementation plan"
+    />
+    <title>Workspace search · implementation plan</title>
+    <link rel="stylesheet" href="/files/assets/report.css" />
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">
+        <span>Workspace / Implementation plan</span
+        ><span class="sample">Fictional demo</span>
+      </div>
+      <h1>Find a task without opening every project</h1>
+      <p class="intro">
+        Add one search field for task titles and notes. Keep results local and
+        reopen the selected task in its project.
+      </p>
+      <h2>Proposed search flow</h2>
+      <div class="flow">
+        <div class="flow-card">
+          <strong>Query</strong>
+          <p>Title or note text</p>
+        </div>
+        <span class="arrow">→</span>
+        <div class="flow-card">
+          <strong>Local index</strong>
+          <p>Update after each save</p>
+        </div>
+        <span class="arrow">→</span>
+        <div class="flow-card">
+          <strong>Ranked results</strong>
+          <p>Title matches first</p>
+        </div>
+      </div>
+      <h2>Result mockup</h2>
+      <section class="search-demo" aria-label="Search results mockup">
+        <div class="search-input">⌕ &nbsp; calendar</div>
+        <article class="search-result">
+          <div>
+            <h3>Review calendar layout</h3>
+            <p>Task board / Design · Due tomorrow</p>
+          </div>
+          <span>↵ Open task</span>
+        </article>
+        <article class="search-result">
+          <div>
+            <h3>Add a calendar export</h3>
+            <p>Personal workspace / Backlog</p>
+          </div>
+          <span>Task</span>
+        </article>
+        <article class="search-result">
+          <div>
+            <h3>Weekly planning notes</h3>
+            <p>Workspace / Notes · “…check the calendar before…”</p>
+          </div>
+          <span>Note</span>
+        </article>
+      </section>
+      <h2>Implementation order</h2>
+      <ol class="step-list">
+        <li>
+          <strong>Index saved content.</strong> Store task IDs, titles and plain
+          note text. Rebuild the index when its schema changes.
+        </li>
+        <li>
+          <strong>Return stable results.</strong> Match titles before notes. Use
+          the task ID to resolve equal scores.
+        </li>
+        <li>
+          <strong>Connect the UI.</strong> Keep the query in the URL. Enter
+          opens the selected task; Escape returns to the board.
+        </li>
+        <li>
+          <strong>Verify the flow.</strong> Check empty queries, renamed tasks,
+          deleted projects and keyboard access.
+        </li>
+      </ol>
+      <div class="decision">
+        <strong>Decision needed</strong>
+        <p>
+          Include archived projects by default, or add an “Include archived”
+          filter? Start with active projects if older results make the list hard
+          to scan.
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

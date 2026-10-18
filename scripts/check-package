@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""Build a source archive, rebuild its wheel, then install and start that wheel."""
+
+import http.client
+import json
+from pathlib import Path
+import re
+import socket
+import subprocess
+import sys
+import tarfile
+import tempfile
+import time
+from urllib.request import Request, urlopen
+import zipfile
+
+root = Path(__file__).resolve().parent.parent
+
+
+def run(*args):
+    return subprocess.run(args, check=True, capture_output=True, text=True).stdout
+
+
+def available_port():
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        return listener.getsockname()[1]
+
+
+with tempfile.TemporaryDirectory() as directory:
+    temporary = Path(directory)
+    artifacts = temporary / "artifacts"
+    run("uv", "build", str(root), "--sdist", "--out-dir", str(artifacts))
+    archive = next(artifacts.glob("*.tar.gz"))
+    source = temporary / "source"
+    with tarfile.open(archive) as package:
+        for entry in package.getmembers():
+            if not entry.isfile():
+                continue
+            destination = (source / entry.name).resolve()
+            if not destination.is_relative_to(source):
+                raise RuntimeError("Source archive has a path outside its root")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(package.extractfile(entry).read())
+            destination.chmod(entry.mode)
+    checkout = next(source.iterdir())
+    for name in (
+        "scripts/report-viewer-service",
+        "scripts/check",
+        "scripts/check-package",
+        "tests/root-state.test.mjs",
+        "tests/export-check.js",
+        "docs/viewer.png",
+    ):
+        if not (checkout / name).is_file():
+            raise RuntimeError("Source archive is missing " + name)
+    run(sys.executable, str(checkout / "scripts/report-viewer-service"), "--help")
+    run("uv", "build", str(checkout), "--wheel", "--out-dir", str(artifacts))
+    wheel = next(artifacts.glob("*.whl"))
+    with zipfile.ZipFile(wheel) as package:
+        names = package.namelist()
+        if any("/.runtime/" in name or "/reports/" in name for name in names):
+            raise RuntimeError("Wheel includes private runtime or report files")
+        for name in (
+            "report_viewer/export.mjs",
+            "report_viewer/styles.css",
+            "report_viewer/vendor/es-module-lexer.mjs",
+            "report_viewer/vendor/LICENSE",
+        ):
+            if name not in names:
+                raise RuntimeError("Wheel is missing " + name)
+    environment = temporary / "environment"
+    run("uv", "venv", "--python", sys.executable, str(environment))
+    python = environment / "bin/python"
+    run("uv", "pip", "install", "--python", str(python), str(wheel))
+    run(str(environment / "bin/report-viewer"), "--help")
+    reports = temporary / "reports"
+    reports.mkdir()
+    (reports / "example.html").write_text(
+        "<title>Installed package report</title><h1>Installed report</h1>"
+    )
+    port, preview = available_port(), available_port()
+    while preview == port:
+        preview = available_port()
+    process = subprocess.Popen(
+        [
+            str(python),
+            "-m",
+            "report_viewer",
+            "--root",
+            str(reports),
+            "--state-dir",
+            str(temporary / "state"),
+            "--port",
+            str(port),
+            "--preview-port",
+            str(preview),
+        ],
+        cwd=temporary,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    origin = f"http://127.0.0.1:{port}"
+    try:
+        for _ in range(50):
+            if process.poll() is not None:
+                raise RuntimeError("Installed app exited during startup")
+            try:
+                with urlopen(origin + "/api/health", timeout=1) as response:
+                    health = json.load(response)
+                if health["root"] == str(reports):
+                    break
+            except (OSError, http.client.HTTPException):
+                pass
+            time.sleep(0.1)
+        else:
+            raise RuntimeError("Installed app did not become ready")
+        with urlopen(origin, timeout=5) as response:
+            page = response.read().decode()
+        token = json.loads(re.search(r'const viewerToken=("[^"]+")', page)[1])
+        with urlopen(
+            Request(origin + "/api/reports?days=0", headers={"X-Viewer-Token": token}),
+            timeout=5,
+        ) as response:
+            catalog = json.load(response)
+        assert [item["path"] for item in catalog["reports"]] == ["example.html"]
+        for name in (
+            "viewer.mjs",
+            "export.mjs",
+            "state.mjs",
+            "styles.css",
+            "vendor/es-module-lexer.mjs",
+        ):
+            with urlopen(origin + "/assets/" + name, timeout=5) as response:
+                assert response.status == 200 and response.read()
+        with urlopen(
+            f"http://127.0.0.1:{preview}/files/example.html", timeout=5
+        ) as response:
+            assert b"Installed report" in response.read()
+        print("Source archive, wheel install, catalog, preview and UI assets passed.")
+    finally:
+        process.terminate()
+        process.communicate(timeout=5)

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="report:title" content="CSV import · validation results" />
+    <title>CSV import · validation results</title>
+    <link rel="stylesheet" href="/files/assets/report.css" />
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">
+        <span>Workspace / Verification</span
+        ><span class="sample">Fictional demo</span>
+      </div>
+      <h1>Review import errors before saving</h1>
+      <p class="intro">
+        Import a small task list with valid rows, missing titles and invalid
+        dates. Keep the source row numbers in every error.
+      </p>
+      <div class="verdict">
+        <span class="check">✓</span><strong>14 of 14 checks passed</strong
+        ><span class="details">Generated CSV samples</span>
+      </div>
+      <h2>Input handling</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Input</th>
+            <th>Observed result</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Quoted title with a comma</td>
+            <td>One title; no extra column</td>
+            <td class="passed">Passed</td>
+          </tr>
+          <tr>
+            <td>Missing task title</td>
+            <td>Row rejected with its source line</td>
+            <td class="passed">Passed</td>
+          </tr>
+          <tr>
+            <td>Invalid due date</td>
+            <td>Preview shows an error before save</td>
+            <td class="passed">Passed</td>
+          </tr>
+          <tr>
+            <td>Import cancelled</td>
+            <td>No tasks written to storage</td>
+            <td class="passed">Passed</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <p>
+          <strong>Limit:</strong> Large-file memory use has not been measured.
+          The current check covers small imports only.
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

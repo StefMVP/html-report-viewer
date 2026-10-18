@@ -1,0 +1,3 @@
+# Scan worktree checkouts while leaving every other hidden directory excluded.
+**/.*
+!**/.worktrees/
