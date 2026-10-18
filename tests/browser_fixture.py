@@ -37,6 +37,7 @@ def populate_checks(root):
     (root / "example.html").write_bytes(
         (APP / "tests/fixtures/report.html").read_bytes()
     )
+    (root / "links.html").write_bytes((APP / "tests/fixtures/links.html").read_bytes())
     (root / "older.html").write_text("<title>Older report</title><h1>Older report</h1>")
     os.utime(root / "older.html", (1, 1))
     (root / "recent.html").write_text(
@@ -51,6 +52,7 @@ def populate_checks(root):
         source.write_text(f"<title>{title}</title><h1>{title}</h1>")
     recent_time = (root / "example.html").stat().st_mtime - 60
     os.utime(root / "recent.html", (recent_time, recent_time))
+    os.utime(root / "links.html", (recent_time - 45, recent_time - 45))
     for exported in (root / "export").rglob("*.html"):
         os.utime(exported, (recent_time - 30, recent_time - 30))
     for index in range(8):
@@ -72,6 +74,7 @@ Then run the browser checks:
   playwright-cli -s=SESSION run-code --filename tests/open-preview-check.js
   playwright-cli -s=SESSION run-code --filename tests/source-filter-check.js
   playwright-cli -s=SESSION run-code --filename tests/export-check.js
+  playwright-cli -s=SESSION run-code --filename tests/link-check.js
 
 For the README screenshot, start this fixture with --demo, then run:
   playwright-cli -s=SESSION run-code --filename tests/capture-readme.js

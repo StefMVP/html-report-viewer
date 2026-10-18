@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Link report</title>
+<h1>Link report</h1>
+<p><a id="local" href="older.html">Older report by the other loopback name</a></p>
+<p><a id="internet" href="https://external.example/page?from=report">Internet page</a></p>
+<p><a id="new-tab" href="https://external.example/new-tab" target="_blank">Internet page in a new tab</a></p>
+<p><a id="section" href="#end">Section</a></p>
+<p id="end">End</p>
+<script>
+// Reports often link the preview by localhost while the viewer frames 127.0.0.1.
+document.getElementById("local").href =
+  location.origin.replace("127.0.0.1", "localhost") + "/files/older.html";
+</script>
+</html>
