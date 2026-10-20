@@ -49,6 +49,8 @@ def populate_checks(root):
     for name, title in [
         ("templates/login.html", "Portal template"),
         ("tests/golden/invoice.html", "Invoice fixture"),
+        (".worktrees/feature-a/example-app/ui/index.html", "Application preview"),
+        (".worktrees/feature-b/toolbox/preview/panel.html", "Tool preview"),
     ]:
         source = root / name
         source.parent.mkdir(parents=True, exist_ok=True)
@@ -93,6 +95,12 @@ options = parser.parse_args()
 
 os.chdir(APP.parent)
 with tempfile.TemporaryDirectory() as temporary:
+    config_home = Path(temporary) / "config"
+    os.environ["XDG_CONFIG_HOME"] = str(config_home)
+    if not options.demo:
+        settings = config_home / "report-viewer" / "code-patterns"
+        settings.parent.mkdir(parents=True)
+        settings.write_text("example-app/ui/*.html\ntoolbox/preview/*.html\n")
     root = Path(temporary) / "reports"
     root.mkdir()
     (populate_demo if options.demo else populate_checks)(root)

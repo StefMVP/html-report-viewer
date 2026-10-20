@@ -3,7 +3,12 @@ async function check(page) {
   const fail = (message) => {
     throw Error(message);
   };
-  const sourcePaths = ["templates/login.html", "tests/golden/invoice.html"];
+  const sourcePaths = [
+    "templates/login.html",
+    "tests/golden/invoice.html",
+    ".worktrees/feature-a/example-app/ui/index.html",
+    ".worktrees/feature-b/toolbox/preview/panel.html",
+  ];
   await page.goto(origin + "/?days=0&type=");
   await page.locator("#list .report").first().waitFor();
   async function assertCatalog(sourceOnly) {
@@ -15,7 +20,7 @@ async function check(page) {
         sourcePaths.some((path) => !paths.includes(path))
       ) {
         fail(
-          "The source view does not contain both source files: " +
+          "The source view does not contain all source files: " +
             JSON.stringify(paths),
         );
       }
@@ -48,6 +53,9 @@ async function check(page) {
   await page.goto(sourceUrl);
   await page.locator("#list .report").first().waitFor();
   await assertCatalog(true);
+  await page
+    .getByRole("button", { name: "Pin report: Tool preview", exact: true })
+    .click();
   await page
     .getByRole("button", { name: /Portal template.*templates\/login.html/ })
     .click();
