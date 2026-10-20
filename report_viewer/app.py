@@ -86,7 +86,8 @@ class Handler(SimpleHTTPRequestHandler):
     def guess_type(self, path):
         kind = super().guess_type(path)
         if kind in ("text/html", "text/css", "text/javascript", "text/xml") or not (
-            kind == "application/octet-stream" or kind.startswith(("text/", "application/x-"))
+            kind in ("application/octet-stream", "application/toml")
+            or kind.startswith(("text/", "application/x-"))
         ):
             return kind
         # Browsers download types they cannot show, and the preview frame blocks

@@ -3,11 +3,13 @@
 import functools
 import http.client
 import json
+import mimetypes
 from pathlib import Path
 import secrets
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from urllib.parse import quote
 
 
@@ -380,11 +382,22 @@ class LocalAPITests(unittest.TestCase):
             ("latin.txt", b"caf\xe9\n", "text/plain"),
             ("style.css", b"p{}", "text/css"),
             ("app.js", b"1", "text/javascript"),
-            ("feed.xml", b"<a/>", "text/xml"),
         ):
             (self.root / name).write_bytes(data)
             with self.subTest(name=name):
                 self.assertEqual(content_type(name), kind)
+        (self.root / "feed.xml").write_bytes(b"<a/>")
+        self.assertIn(content_type("feed.xml"), ("text/xml", "application/xml"))
+
+    def test_registered_toml_type_opens_as_text(self):
+        # The host MIME database can register TOML as an application type.
+        mimetypes.init()
+        with patch.dict(mimetypes.types_map, {".toml": "application/toml"}):
+            (self.root / "settings.toml").write_text("key = 1\n")
+            code, headers, data = request(self.preview.server_port, "/files/settings.toml")
+        self.assertEqual(code, 200)
+        self.assertEqual(headers["Content-type"], "text/plain; charset=utf-8")
+        self.assertEqual(data, b"key = 1\n")
 
     def test_viewer_cannot_be_framed_and_has_nonce(self):
         status, headers, body = request(self.port, "/")
