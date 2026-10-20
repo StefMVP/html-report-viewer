@@ -10,6 +10,10 @@ from report_viewer import discovery
 
 
 class DiscoveryTests(unittest.TestCase):
+    def setUp(self):
+        config_home = self.enterContext(tempfile.TemporaryDirectory())
+        self.enterContext(patch.dict("os.environ", {"XDG_CONFIG_HOME": config_home}))
+
     def test_source_files_are_separate_from_reports_in_worktrees(self):
         source = {
             ".worktrees/example-feature/site/templates/login.html",

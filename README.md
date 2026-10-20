@@ -29,6 +29,23 @@ Search by title or path. Filter by type or age. Pin reports to keep them above
 other results. Each group shows the newest reports first. Filters and the selected
 report stay in the URL.
 
+**Reports and pages** excludes **Code and tests**. This type includes test fixtures
+and templates. To add local source pages, create
+`~/.config/report-viewer/code-patterns` outside your repositories:
+
+```text
+# One path pattern per line.
+example-app/ui/*.html
+toolbox/preview/*.html
+```
+
+The viewer also supports `$XDG_CONFIG_HOME/report-viewer/code-patterns`.
+Patterns match path endings. Letter case does not affect matches. They apply in
+any checkout, worktree, or archive. `*` matches within one path part.
+Empty lines and lines that start with `#` are ignored.
+Changes apply on the next catalog refresh.
+Choose **Code and tests** in the type filter to find these pages.
+
 **Copy report** copies a local file link. **Download report** saves standalone HTML
 with its styles, images, scripts, media and nested frames. **Open** opens the preview.
 Links to internet sites in a report open in a new tab. Links to absolute file paths

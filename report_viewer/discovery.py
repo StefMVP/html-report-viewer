@@ -31,6 +31,20 @@ HEAD_CACHE = {}
 LOCK = threading.Lock()
 
 
+def source_patterns():
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    settings = config_home / "report-viewer" / "code-patterns"
+    try:
+        lines = settings.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return ()
+    return tuple(
+        line.strip().lower()
+        for line in lines
+        if line.strip() and not line.lstrip().startswith("#")
+    )
+
+
 class Head(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -104,10 +118,12 @@ def html_files(root):
     ]
 
 
-def page_kind(rel, head):
+def page_kind(rel, head, patterns=()):
     """Separate source files before applying report metadata and page conventions."""
     parts = [part.lower() for part in rel.parts]
-    if SOURCE_FOLDERS.intersection(parts[:-1]):
+    if SOURCE_FOLDERS.intersection(parts[:-1]) or any(
+        Path(*parts).match(pattern) for pattern in patterns
+    ):
         return "Code and tests"
     stem = rel.stem.lower()
     words = set(re.split(r"[^a-z0-9]+", stem))
@@ -140,11 +156,13 @@ def page_kind(rel, head):
 
 def scan(root, days=3, pins=frozenset()):
     with LOCK:
+        patterns = source_patterns()
         if (
             time.monotonic() - CACHE["time"] < 10
             and CACHE.get("root") == root
             and CACHE.get("days") == days
             and CACHE.get("pins") == pins
+            and CACHE.get("patterns") == patterns
         ):
             return CACHE["rows"], CACHE["warnings"]
         rows, warnings = [], 0
@@ -173,7 +191,7 @@ def scan(root, days=3, pins=frozenset()):
                     with path.open(encoding="utf-8", errors="replace") as source:
                         head.feed(source.read(65536).split("</head>", 1)[0])
                     HEAD_CACHE[path] = (signature, head)
-                kind = page_kind(rel, head)
+                kind = page_kind(rel, head, patterns)
                 if kind is None:
                     continue
                 rows.append(
@@ -197,5 +215,6 @@ def scan(root, days=3, pins=frozenset()):
             warnings=warnings,
             days=days,
             pins=pins,
+            patterns=patterns,
         )
         return rows, warnings
