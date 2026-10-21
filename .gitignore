@@ -8,5 +8,4 @@ dist/
 .playwright-cli/
 screenshots/
 reports/
-.ws/
 .worktrees/
