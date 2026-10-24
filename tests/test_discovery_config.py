@@ -30,8 +30,8 @@ class DiscoveryConfigTests(unittest.TestCase):
         self.settings.parent.mkdir(parents=True, exist_ok=True)
         self.settings.write_text(content)
 
-    def kinds(self):
-        rows, warnings = discovery.scan(self.root, days=0)
+    def kinds(self, pins=frozenset()):
+        rows, warnings = discovery.scan(self.root, days=0, pins=pins)
         self.assertEqual(warnings, 0)
         return {row["path"]: row["kind"] for row in rows}
 
@@ -93,3 +93,31 @@ class DiscoveryConfigTests(unittest.TestCase):
         with patch.dict(os.environ), patch.object(Path, "home", return_value=self.directory):
             os.environ.pop("XDG_CONFIG_HOME", None)
             self.assertEqual(self.kinds()["example-app/ui/page.html"], "Code and tests")
+
+    def test_ignore_patterns_hide_report_copies_and_reload(self):
+        settings = self.settings.with_name("ignore-patterns")
+        settings.parent.mkdir(parents=True)
+        settings.write_text(
+            "# Unwanted reports\n\nAPP/PERFORMANCE/REPORT.HTML\nfleet/status.html\n"
+        )
+        hidden = {
+            "app/performance/report.html",
+            "example-repo/.worktrees/example-main/.worktrees/example-feature/app/performance/REPORT.HTML",
+            "knowledge/fleet/status.html",
+            "archive/knowledge/fleet/status.html",
+        }
+        visible = {"app/reports/report.html", "fleet/results.html"}
+        for name in hidden | visible:
+            self.write_page(name)
+        rg = shutil.which("rg")
+        for executable in [None] + ([rg] if rg else []):
+            with self.subTest(scanner=executable or "os.walk"):
+                discovery.CACHE["time"] = 0
+                with patch.object(discovery.shutil, "which", return_value=executable):
+                    self.assertEqual(set(self.kinds(pins=frozenset(hidden))), visible)
+        settings.write_text("fleet/status.html\n")
+        self.assertEqual(
+            set(self.kinds()), visible | {p for p in hidden if "performance" in p}
+        )
+        settings.unlink()
+        self.assertEqual(set(self.kinds()), visible | hidden)
