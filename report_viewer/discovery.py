@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat as file_stat
 import subprocess
 import threading
 import time
@@ -31,9 +32,9 @@ HEAD_CACHE = {}
 LOCK = threading.Lock()
 
 
-def source_patterns():
+def local_patterns(name):
     config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
-    settings = config_home / "report-viewer" / "code-patterns"
+    settings = config_home / "report-viewer" / name
     try:
         lines = settings.read_text(encoding="utf-8").splitlines()
     except FileNotFoundError:
@@ -72,14 +73,32 @@ class Head(HTMLParser):
             self.title += data
 
 
-def html_files(root):
-    # Include ignored/untracked reports and worktrees; do not follow directory symlinks.
+def html_files(root, cutoff=0, pins=frozenset(), ignored=()):
+    # Check dates before resolving paths or reading report metadata.
+    # Stay on the root filesystem and do not follow file or directory symlinks.
+    device = root.stat().st_dev
+
+    def eligible(name):
+        relative = Path(name)
+        try:
+            metadata = os.stat(root / relative, follow_symlinks=False)
+            return (
+                file_stat.S_ISREG(metadata.st_mode)
+                and metadata.st_dev == device
+                and (metadata.st_mtime >= cutoff or relative.as_posix() in pins)
+                and not any(Path(name.lower()).match(pattern) for pattern in ignored)
+                and resolve_visible(root, relative) is not None
+            )
+        except OSError:
+            return False
+
     if shutil.which("rg"):
         args = [
             "rg",
             "--files",
             "--hidden",
             "--no-ignore",
+            "--one-file-system",
             "--ignore-file",
             str(APP / "discovery.ignore"),
             "-0",
@@ -96,26 +115,28 @@ def html_files(root):
                 "Some folders could not be scanned: "
                 + result.stderr.decode(errors="replace")[:200]
             )
-        return [
-            root / os.fsdecode(p)
-            for p in result.stdout.split(b"\0")
-            if p and resolve_visible(root, Path(os.fsdecode(p))) is not None
-        ]
+        names = [os.fsdecode(p) for p in result.stdout.split(b"\0") if p]
+        return [root / name for name in names if eligible(name)]
     paths = []
     for parent, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in SKIP and visible_path(Path(d))]
+        def local_directory(name):
+            if not visible_path(Path(name)):
+                return False
+            try:
+                metadata = os.stat(os.path.join(parent, name), follow_symlinks=False)
+                return file_stat.S_ISDIR(metadata.st_mode) and metadata.st_dev == device
+            except OSError:
+                return False
+
+        dirs[:] = [d for d in dirs if local_directory(d)]
         paths.extend(
             Path(parent) / f
             for f in files
             if not f.startswith(".")
             and f.lower().endswith((".html", ".htm"))
-            and not (Path(parent) / f).is_symlink()
+            and eligible(os.path.relpath(os.path.join(parent, f), root))
         )
-    return [
-        path
-        for path in paths
-        if resolve_visible(root, path.relative_to(root)) is not None
-    ]
+    return paths
 
 
 def page_kind(rel, head, patterns=()):
@@ -156,29 +177,26 @@ def page_kind(rel, head, patterns=()):
 
 def scan(root, days=3, pins=frozenset()):
     with LOCK:
-        patterns = source_patterns()
+        patterns = local_patterns("code-patterns")
+        ignored = local_patterns("ignore-patterns")
         if (
             time.monotonic() - CACHE["time"] < 10
             and CACHE.get("root") == root
             and CACHE.get("days") == days
             and CACHE.get("pins") == pins
             and CACHE.get("patterns") == patterns
+            and CACHE.get("ignored") == ignored
         ):
             return CACHE["rows"], CACHE["warnings"]
         rows, warnings = [], 0
         cutoff = time.time() - days * 86400 if days else 0
-        paths = html_files(root)
+        paths = html_files(root, cutoff, pins, ignored)
         existing = set(paths)
         for stale in HEAD_CACHE.keys() - existing:
             del HEAD_CACHE[stale]
         for path in paths:
             try:
                 stat = path.stat()
-                if (
-                    stat.st_mtime < cutoff
-                    and path.relative_to(root).as_posix() not in pins
-                ):
-                    continue
                 if path.resolve().is_relative_to(APP):
                     continue
                 rel = path.relative_to(root)
@@ -216,5 +234,6 @@ def scan(root, days=3, pins=frozenset()):
             days=days,
             pins=pins,
             patterns=patterns,
+            ignored=ignored,
         )
         return rows, warnings

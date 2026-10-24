@@ -46,6 +46,15 @@ Empty lines and lines that start with `#` are ignored.
 Changes apply on the next catalog refresh.
 Choose **Code and tests** in the type filter to find these pages.
 
+To remove pages from the catalog, add their path patterns to
+`~/.config/report-viewer/ignore-patterns` (or use `$XDG_CONFIG_HOME`).
+This file uses the same pattern rules as `code-patterns`. It also removes pinned
+matches. Edits apply on the next refresh.
+
+Discovery stays on the root filesystem and skips symlinks. It checks file dates
+before it resolves paths or reads page titles. The age filter still includes
+older pinned reports. A filter change starts a new scan.
+
 **Copy report** copies a local file link. **Download report** saves standalone HTML
 with its styles, images, scripts, media and nested frames. **Open** opens the preview.
 Links to internet sites in a report open in a new tab. Links to absolute file paths
