@@ -25,9 +25,10 @@ The viewer and separate report preview listen on localhost.
 
 ## Use
 
-Search by title or path. Filter by type or age. Pin reports to keep them above
-other results. Each group shows the newest reports first. Filters and the selected
-report stay in the URL.
+Search by title, description, relative path or full file path. Filter by type or
+age. Pin reports to keep them above other results. Each group shows the newest
+reports first. Filters and the selected report stay in the URL. An open report
+reloads when its file changes on disk.
 
 **Reports and pages** excludes **Code and tests**. This type includes test fixtures
 and templates. To add local source pages, create

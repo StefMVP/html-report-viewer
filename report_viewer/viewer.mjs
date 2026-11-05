@@ -1,3 +1,4 @@
+import { changedReport, matchesQuery } from "./catalog.mjs";
 import { standaloneHTML } from "./export.mjs";
 import { migrateRootState } from "./state.mjs";
 
@@ -66,7 +67,7 @@ function age(timestamp) {
         : Math.floor(seconds / 86400) + "d ago";
 }
 function render() {
-  const query = $("search").value.trim().toLowerCase();
+  const query = $("search").value;
   const type = $("type").value;
   const cutoff =
     $("days").value === "0"
@@ -77,9 +78,7 @@ function render() {
       (r) =>
         (pins.has(r.path) || r.path === lastPath || r.modified >= cutoff) &&
         (type ? (r.kind || "HTML") === type : r.kind !== "Code and tests") &&
-        (r.title + " " + r.path + " " + r.description + " " + r.kind)
-          .toLowerCase()
-          .includes(query),
+        matchesQuery(r, query, workspaceRoot),
     )
     .sort(reportOrder);
   const scroll = $("list").scrollTop;
@@ -158,17 +157,8 @@ function setSidebar(open) {
   document.body.classList.toggle("collapsed", !open);
   $("toggle").setAttribute("aria-expanded", String(open));
 }
-function select(row) {
-  initialSelectionPending = false;
-  selected = { ...row };
-  seen[row.path] = row.modified;
-  lastPath = row.path;
-  storage.set("selected", lastPath);
-  storage.set("seen", seen);
-  const address = new URL(location.href);
-  address.searchParams.set("report", row.path);
-  history.replaceState(null, "", address);
-  // Replace the browsing context so each click starts a new document at the top.
+function loadPreview(row) {
+  // Replace the browsing context so each load starts a new document at the top.
   const frame = $("frame").cloneNode(false),
     url = new URL(row.url, previewOrigin);
   frame.setAttribute(
@@ -180,6 +170,18 @@ function select(row) {
   frame.src = url.href;
   frame.hidden = false;
   $("frame").replaceWith(frame);
+}
+function select(row) {
+  initialSelectionPending = false;
+  selected = { ...row };
+  seen[row.path] = row.modified;
+  lastPath = row.path;
+  storage.set("selected", lastPath);
+  storage.set("seen", seen);
+  const address = new URL(location.href);
+  address.searchParams.set("report", row.path);
+  history.replaceState(null, "", address);
+  loadPreview(row);
   $("welcome").hidden = true;
   $("current").textContent = row.path;
   $("current").title = row.path;
@@ -253,6 +255,14 @@ async function refresh() {
     if (initialSelectionPending) {
       const initial = rows.find((r) => r.path === lastPath);
       if (initial) select(initial);
+    }
+    // Reload an open report when its file changes, so it never shows an old copy.
+    const changed = changedReport(selected, rows);
+    if (changed) {
+      selected = { ...changed };
+      seen[changed.path] = changed.modified;
+      storage.set("seen", seen);
+      loadPreview(selected);
     }
     render();
     $("connection-error").hidden = true;

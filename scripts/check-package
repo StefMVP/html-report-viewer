@@ -63,6 +63,7 @@ with tempfile.TemporaryDirectory() as directory:
             raise RuntimeError("Wheel includes private runtime or report files")
         for name in (
             "report_viewer/export.mjs",
+            "report_viewer/catalog.mjs",
             "report_viewer/styles.css",
             "report_viewer/vendor/es-module-lexer.mjs",
             "report_viewer/vendor/LICENSE",
@@ -128,6 +129,7 @@ with tempfile.TemporaryDirectory() as directory:
             "viewer.mjs",
             "export.mjs",
             "state.mjs",
+            "catalog.mjs",
             "styles.css",
             "vendor/es-module-lexer.mjs",
         ):
