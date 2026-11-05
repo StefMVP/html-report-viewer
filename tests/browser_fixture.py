@@ -78,6 +78,7 @@ Then run the browser checks:
   playwright-cli -s=SESSION run-code --filename tests/navigation-check.js
   playwright-cli -s=SESSION run-code --filename tests/open-preview-check.js
   playwright-cli -s=SESSION run-code --filename tests/source-filter-check.js
+  playwright-cli -s=SESSION run-code --filename tests/live-refresh-check.js
   playwright-cli -s=SESSION run-code --filename tests/export-check.js
   playwright-cli -s=SESSION run-code --filename tests/link-check.js
 

@@ -22,6 +22,7 @@ APP = Path(__file__).resolve().parent
 ROOT = Path.cwd()
 UI_ASSETS = {
     "viewer.mjs",
+    "catalog.mjs",
     "state.mjs",
     "export.mjs",
     "styles.css",
