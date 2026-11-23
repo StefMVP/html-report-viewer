@@ -237,6 +237,27 @@ class LocalAPITests(unittest.TestCase):
         )
         self.assertEqual(content_type, "audio/wav")
 
+    def test_a_report_picture_loads_without_a_referer(self):
+        # A browser sends no referer to a loopback host, so a report's own picture arrives bare.
+        (self.root / "card.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+        code, headers, _ = request(self.preview.server_port, "/files/card.png?v=1")
+        self.assertEqual(code, 200)
+        content_type = next(
+            value for key, value in headers.items() if key.lower() == "content-type"
+        )
+        self.assertEqual(content_type, "image/png")
+
+    def test_a_picture_path_from_the_viewer_root_loads(self):
+        # The report links /files/<first folder>/<path>, one folder short of the viewer root.
+        (self.root / "work").mkdir()
+        (self.root / "work" / "card.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+        code, headers, _ = request(self.preview.server_port, "/files/Work/work/card.png")
+        self.assertEqual(code, 200)
+        content_type = next(
+            value for key, value in headers.items() if key.lower() == "content-type"
+        )
+        self.assertEqual(content_type, "image/png")
+
     def test_separate_preview_allows_viewer_and_rejects_other_origins(self):
         for origin, site in (
             (f"http://127.0.0.1:{self.port}", "same-site"),

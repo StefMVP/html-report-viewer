@@ -19,6 +19,12 @@ from .paths import resolve_visible
 from .discovery import scan
 
 APP = Path(__file__).resolve().parent
+FILE_TYPES = {
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif",
+    ".mp4", ".webm", ".mov", ".mp3", ".wav",
+    ".css", ".js", ".json", ".csv", ".pdf",
+    ".ttf", ".otf", ".woff", ".woff2",
+}
 ROOT = Path.cwd()
 UI_ASSETS = {
     "viewer.mjs",
@@ -96,6 +102,8 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             with open(path, "rb") as source:
                 sample = source.read(65536)
+            if Path(path).suffix.lower() in FILE_TYPES:
+                return kind
             codecs.getincrementaldecoder("utf-8")().decode(sample)
         except (OSError, UnicodeDecodeError):
             return kind
@@ -108,12 +116,19 @@ class Handler(SimpleHTTPRequestHandler):
         return "http://" + self.headers.get("Host", "")
 
     def local_request(self):
+        # A report's own files (pictures, fonts, media) arrive with no referer and no Sec-Fetch headers.
         hosts = {
             f"127.0.0.1:{self.server.server_port}",
             f"localhost:{self.server.server_port}",
         }
         remote = getattr(self.server, "remote_origin", "")
         host = self.headers.get("Host")
+        path = urlsplit(self.path).path
+        if (
+            Path(unquote(path)).suffix.lower() in FILE_TYPES
+            and host in hosts
+        ):
+            return True
         if len(self.headers.get_all("Host", [])) != 1:
             return False
         if remote and host == urlsplit(remote).netloc:
@@ -154,10 +169,10 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_error(405)
 
     def do_GET(self):
+        url = urlsplit(self.path)
         if not self.local_request():
             self.send_error(403)
             return
-        url = urlsplit(self.path)
         if getattr(self.server, "preview_only", False) and not url.path.startswith(
             "/files/"
         ):
@@ -168,8 +183,29 @@ class Handler(SimpleHTTPRequestHandler):
                 if target.is_relative_to(ROOT)
                 else None
             )
+            if found is None:
+                # A ../ link from a report keeps its first part, so a folder follows it twice.
+                parts = target.relative_to("/").parts
+                at = parts.index("report") if "report" in parts else -1
+                tries = (
+                    [parts[:at] + parts[at + 2:]]
+                    if at >= 0 and at + 2 < len(parts) and parts[at + 1] == parts[at + 2]
+                    else []
+                )
+                if len(parts) > 1 and parts[0] == parts[1]:
+                    tries.append(parts[1:])
+                for attempt in tries:
+                    found = resolve_visible(ROOT, Path(*attempt))
+                    if found is not None:
+                        break
             if found is None or not found.is_file():
                 self.send_error(404)
+                return
+            if Path(self.path).suffix.lower() in FILE_TYPES:
+                # A picture, font or other file: answer it here, so that a relative ../ link
+                # from a report reaches its file with one request.
+                self.serving_report = True
+                self.send_file(found)
                 return
             self.send_response(302)
             self.send_header(
@@ -265,15 +301,26 @@ class Handler(SimpleHTTPRequestHandler):
         if not url.path.startswith("/files/"):
             self.send_error(404)
             return
-        else:
-            relative = unquote(url.path[len("/files/") :])
-            candidate = resolve_visible(ROOT, Path(relative))
+        relative = unquote(url.path[len("/files/") :])
+        candidate = resolve_visible(ROOT, Path(relative))
+        if candidate is None or not candidate.is_file():
+            # The viewer root is one folder above the first part of a path, as /files/Work/z/...
+            # for /home/<name>/Work/z/...: a report links the path from its root at the second part.
+            parts = Path(relative).parts
+            candidate = resolve_visible(ROOT, Path(*parts[1:])) if len(parts) > 1 else None
             if candidate is None or not candidate.is_file():
                 self.send_error(404)
                 return
-            self.path = "/" + quote(candidate.relative_to(ROOT).as_posix())
+        self.path = "/" + quote(candidate.relative_to(ROOT).as_posix())
+        # The server resolves a path without its .. parts to the target, so the type comes from that file.
+        target = Path(unquote(urlsplit(self.path).path)).name
         self.serving_report = True
-        if getattr(self.server, "preview_only", False) and candidate.suffix.lower() in (
+        if Path(target).suffix.lower() in FILE_TYPES:
+            # A picture, font or media file: send it with its own type. The path may hold an absolute
+            # one from a report, which the base server cannot type.
+            self.send_file(ROOT / Path(unquote(urlsplit(self.path).path)).relative_to("/"))
+            return
+        if getattr(self.server, "preview_only", False) and Path(target).suffix.lower() in (
             ".html",
             ".htm",
         ):
@@ -285,6 +332,19 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(body)
             return
         super().do_GET()
+
+    def send_file(self, path):
+        """Send one file with its own type, which a path with an absolute part would otherwise lose."""
+        try:
+            body = path.read_bytes()
+        except OSError:
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", self.guess_type(str(path)))
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def do_HEAD(self):
         self.send_error(405)
