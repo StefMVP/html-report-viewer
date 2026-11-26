@@ -431,6 +431,102 @@ class LocalAPITests(unittest.TestCase):
                 )
                 self.assertEqual((code, body), (404, b""))
 
+    def test_file_head_and_byte_ranges(self):
+        payload = bytes(range(256)) * 4  # 1024 bytes
+        (self.root / "clip.mp4").write_bytes(payload)
+        (self.root / "empty.mp4").write_bytes(b"")
+
+        # HEAD without Range returns 200 with Accept-Ranges and Content-Length.
+        code, headers, body = request(self.port, "/files/clip.mp4", method="HEAD")
+        self.assertEqual(code, 200)
+        self.assertEqual(headers.get("Accept-Ranges"), "bytes")
+        self.assertEqual(headers.get("Content-Length"), str(len(payload)))
+        self.assertEqual(body, b"")
+
+        # HEAD with Range returns 206 with Content-Range and slice Content-Length.
+        code, headers, body = request(
+            self.port,
+            "/files/clip.mp4",
+            method="HEAD",
+            headers={"Range": "bytes=0-127"},
+        )
+        self.assertEqual(code, 206)
+        self.assertEqual(headers.get("Accept-Ranges"), "bytes")
+        self.assertEqual(headers.get("Content-Range"), "bytes 0-127/1024")
+        self.assertEqual(headers.get("Content-Length"), "128")
+        self.assertEqual(body, b"")
+
+        # HEAD on non-/files/ routes remains rejected.
+        self.assertEqual(request(self.port, "/api/health", method="HEAD")[0], 404)
+
+        # Full GET returns 200 with Accept-Ranges and full payload.
+        code, headers, body = request(self.port, "/files/clip.mp4")
+        self.assertEqual(code, 200)
+        self.assertEqual(headers.get("Accept-Ranges"), "bytes")
+        self.assertEqual(headers.get("Content-Length"), str(len(payload)))
+        self.assertEqual(body, payload)
+
+        # Partial GET: explicit start-end, open-ended start-, clamped end, and suffix.
+        cases = [
+            ("bytes=0-99", 0, 99),
+            ("bytes=100-299", 100, 299),
+            ("bytes=900-", 900, 1023),
+            ("bytes=900-5000", 900, 1023),
+            ("bytes=-64", 960, 1023),
+            ("bytes=-5000", 0, 1023),
+        ]
+        for range_header, start, end in cases:
+            with self.subTest(range_header=range_header):
+                code, headers, body = request(
+                    self.port,
+                    "/files/clip.mp4",
+                    headers={"Range": range_header},
+                )
+                expected = payload[start : end + 1]
+                self.assertEqual(code, 206)
+                self.assertEqual(headers.get("Accept-Ranges"), "bytes")
+                self.assertEqual(
+                    headers.get("Content-Range"), f"bytes {start}-{end}/1024"
+                )
+                self.assertEqual(headers.get("Content-Length"), str(len(expected)))
+                self.assertEqual(body, expected)
+
+        # Out-of-bounds and invalid ranges return 416 with Content-Range: bytes */total.
+        for path, total, range_header in (
+            ("/files/clip.mp4", 1024, "bytes=1024-"),
+            ("/files/clip.mp4", 1024, "bytes=2000-3000"),
+            ("/files/clip.mp4", 1024, "bytes=500-100"),
+            ("/files/clip.mp4", 1024, "bytes=-0"),
+            ("/files/clip.mp4", 1024, "bytes=-"),
+            ("/files/empty.mp4", 0, "bytes=0-0"),
+        ):
+            with self.subTest(path=path, range_header=range_header):
+                code, headers, body = request(
+                    self.port, path, headers={"Range": range_header}
+                )
+                self.assertEqual(code, 416)
+                self.assertEqual(headers.get("Accept-Ranges"), "bytes")
+                self.assertEqual(headers.get("Content-Range"), f"bytes */{total}")
+                self.assertEqual(headers.get("Content-Length"), "0")
+                self.assertEqual(body, b"")
+
+        # HTTP/1.1 persistent connection reuse does not hang or leak report CSP.
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=8)
+        try:
+            conn.request("GET", "/files/clip.mp4", headers={"Range": "bytes=0-15"})
+            first = conn.getresponse()
+            self.assertEqual(first.status, 206)
+            self.assertEqual(first.version, 11)
+            self.assertEqual(first.read(), payload[:16])
+
+            conn.request("GET", "/api/health")
+            second = conn.getresponse()
+            self.assertEqual(second.status, 200)
+            self.assertNotIn("Content-Security-Policy", dict(second.getheaders()))
+            self.assertEqual(json.loads(second.read())["app"], "workspace-report-viewer")
+        finally:
+            conn.close()
+
 
 if __name__ == "__main__":
     unittest.main()

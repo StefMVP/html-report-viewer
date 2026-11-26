@@ -69,7 +69,48 @@ def https_origin(value):
     return "https://" + parsed.netloc
 
 
+COPY_CHUNK_SIZE = 65536
+RANGE_RE = re.compile(r"^(\d*)-(\d*)$")
+
+
+def parse_byte_range(header_value, total_size):
+    """Parse a single RFC 7233 byte range.
+
+    Returns:
+        None if no applicable single byte range is present (serve 200 OK).
+        ("unsatisfiable", None) if the range cannot be satisfied (serve 416).
+        (start, end) inclusive byte offsets (serve 206 Partial Content).
+    """
+    if not header_value:
+        return None
+    units, sep, spec = header_value.strip().partition("=")
+    if not sep or units.strip().lower() != "bytes":
+        return None
+    spec = spec.strip()
+    if "," in spec:
+        return None
+    match = RANGE_RE.fullmatch(spec)
+    if not match:
+        return ("unsatisfiable", None)
+    start_str, end_str = match.groups()
+    if not start_str and not end_str:
+        return ("unsatisfiable", None)
+    if total_size <= 0:
+        return ("unsatisfiable", None)
+    if start_str:
+        start = int(start_str)
+        end = int(end_str) if end_str else total_size - 1
+        if start >= total_size or start > end:
+            return ("unsatisfiable", None)
+        return (start, min(end, total_size - 1))
+    suffix = int(end_str)
+    if suffix <= 0:
+        return ("unsatisfiable", None)
+    return (max(0, total_size - suffix), total_size - 1)
+
+
 class Handler(SimpleHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
     extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".wav": "audio/wav"}
 
     def send_error(self, code, message=None, explain=None):
@@ -154,6 +195,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_error(405)
 
     def do_GET(self):
+        self.serving_report = False
         if not self.local_request():
             self.send_error(403)
             return
@@ -265,13 +307,25 @@ class Handler(SimpleHTTPRequestHandler):
         if not url.path.startswith("/files/"):
             self.send_error(404)
             return
-        else:
-            relative = unquote(url.path[len("/files/") :])
-            candidate = resolve_visible(ROOT, Path(relative))
-            if candidate is None or not candidate.is_file():
-                self.send_error(404)
-                return
-            self.path = "/" + quote(candidate.relative_to(ROOT).as_posix())
+        self.serve_file(url, head_only=False)
+
+    def do_HEAD(self):
+        self.serving_report = False
+        if not self.local_request():
+            self.send_error(403)
+            return
+        url = urlsplit(self.path)
+        if not url.path.startswith("/files/"):
+            self.send_error(405)
+            return
+        self.serve_file(url, head_only=True)
+
+    def serve_file(self, url, head_only=False):
+        relative = unquote(url.path[len("/files/") :])
+        candidate = resolve_visible(ROOT, Path(relative))
+        if candidate is None or not candidate.is_file():
+            self.send_error(404)
+            return
         self.serving_report = True
         if getattr(self.server, "preview_only", False) and candidate.suffix.lower() in (
             ".html",
@@ -280,14 +334,61 @@ class Handler(SimpleHTTPRequestHandler):
             body = candidate.read_bytes() + LINK_SCRIPT
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
+            self.send_header("Accept-Ranges", "bytes")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(body)
+            if not head_only:
+                self.wfile.write(body)
             return
-        super().do_GET()
-
-    def do_HEAD(self):
-        self.send_error(405)
+        try:
+            source = open(candidate, "rb")
+        except OSError:
+            self.send_error(404)
+            return
+        with source:
+            stat = os.fstat(source.fileno())
+            total_size = stat.st_size
+            ctype = self.guess_type(str(candidate))
+            byte_range = parse_byte_range(self.headers.get("Range"), total_size)
+            if byte_range is not None and byte_range[0] == "unsatisfiable":
+                self.send_response(416)
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Content-Range", f"bytes */{total_size}")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            if byte_range is not None:
+                start, end = byte_range
+                remaining = end - start + 1
+                self.send_response(206)
+                self.send_header("Content-type", ctype)
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Content-Range", f"bytes {start}-{end}/{total_size}")
+                self.send_header("Content-Length", str(remaining))
+                self.send_header("Last-Modified", self.date_time_string(stat.st_mtime))
+                self.end_headers()
+                if head_only:
+                    return
+                source.seek(start)
+            else:
+                remaining = total_size
+                self.send_response(200)
+                self.send_header("Content-type", ctype)
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Content-Length", str(total_size))
+                self.send_header("Last-Modified", self.date_time_string(stat.st_mtime))
+                self.end_headers()
+                if head_only:
+                    return
+            try:
+                while remaining > 0:
+                    chunk = source.read(min(COPY_CHUNK_SIZE, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
+            except (BrokenPipeError, ConnectionResetError):
+                self.close_connection = True
 
     def send_json(self, status, value):
         payload = json.dumps(value).encode()
